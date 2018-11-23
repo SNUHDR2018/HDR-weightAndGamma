@@ -45,6 +45,7 @@ import static org.opencv.core.CvType.CV_32FC1;
 import static org.opencv.core.CvType.CV_32FC3;
 import static org.opencv.core.CvType.CV_8UC1;
 import static org.opencv.core.CvType.CV_8UC3;
+import static org.opencv.core.CvType.CV_8UC4;
 import static org.opencv.photo.Photo.createAlignMTB;
 
 
@@ -125,8 +126,6 @@ public class Main5Activity extends Activity {
                 Core.LUT(destination2, lut2, destination2);
 
 
-
-
                 List<Mat> images = new ArrayList<Mat>();
                 images.add(mat1);
                 images.add(mat2);
@@ -135,8 +134,35 @@ public class Main5Activity extends Activity {
                 images.add(destination2);
                 //AlignMTB alignMTB = createAlignMTB();
                 //alignMTB.process(images, images);
-                Mat resultImage = exposureFusion(images, 1,1,1,8);
-                
+
+                //WEIGHT PARAMETERS FOR EXPOSURE FUSION
+                double w_c = 1.0, w_s = 1.0, w_e = 1.0;
+                int depth = 8;
+                Mat rgbImg = images.get(1);
+                int r = rgbImg.rows();
+                int c = rgbImg.cols();
+                Mat hsvImg = new Mat(r,c,CV_8UC4);
+                Imgproc.cvtColor(rgbImg,hsvImg,Imgproc.COLOR_RGB2HSV);
+                //mean value range 0.0 ~ 255.0
+                double mean_hue = Core.mean(hsvImg).val[0];
+                double mean_sat = Core.mean(hsvImg).val[1];
+                double mean_val = Core.mean(hsvImg).val[2];
+                w_s = Math.log(mean_sat) / Math.log(255.0);
+                w_e = Math.log(mean_val) / Math.log(255.0);
+
+                Mat edges = new Mat(r,c,CV_8UC4);
+                Imgproc.Canny(rgbImg,edges,10,100);
+                double e1 = Core.mean(edges).val[0];
+                //depth = (int)Math.round(e1/12.0);
+
+                // PROCESS EXPOSURE FUSION
+                // w_c, w_s, w_e : weights for contrast, saturation, well-exposedness
+                // depth : pyramid depth
+                Mat resultImage = exposureFusion(images,w_c,w_s,w_e,depth);
+
+
+                //Mat resultImage = exposureFusion(images, 1,1,1,8);
+
 
 
                 //Mat dest = resultImage.clone();
